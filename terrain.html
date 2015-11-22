@@ -1,0 +1,139 @@
+<!-- very neat terrain generator from here: http://www.playfuljs.com/realistic-terrain-in-130-lines/  -->
+<!-- WebGL version by me  -->
+<!DOCTYPE html>
+<html><head>
+    <title>Terrain Generator in WebGL</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta name="Generator" content="https://github.com/callumprentice/ThreeJsAppTemplate">
+        <style type="text/css">
+            body {
+                background-color: #000;
+                color: #ff0;
+                margin: 0;
+                overflow: hidden;
+                image-rendering: -moz-crisp-edges;
+            }
+            #layer {
+                position: fixed;
+                margin: 0px;
+                padding: 0px;
+                top: 0px;
+            }
+            #layer li {
+                list-style: none;
+            }
+            #layer canvas {
+                width: calc(100vh / 4);
+                height: calc(100vh / 4);
+            }
+        </style>
+        <script type="text/javascript" src="lib/terrain/three.js"></script>
+        <script type="text/javascript" src="lib/terrain/TrackballControls.js"></script>
+        <script type="text/javascript" src="lib/terrain/Detector.js"></script>
+        <script type="text/javascript" src="lib/terrain/dat.js"></script>
+        <script type="text/javascript" src="lib/terrain/Terrain.js"></script>
+        <script src='lib/noisejs/perlin.js'></script>
+        <script src='lib/notiastar/utils.js'></script>
+        <script src='lib/notiastar/world.js'></script>
+        <script src='lib/notiastar/findpath.js'></script>
+        <script src='lib/notiastar/render.js'></script>
+    </head>
+    <body onload="onload()">
+        <script type="text/javascript">
+
+            // ensure that concole.log doesn't cause errors
+            if (typeof console == "undefined")
+                var console = { log: function() {} };
+        
+            var camera, scene, renderer, controls;
+            var terrain_mesh, water_mesh, water_height = 1;
+            var terrain_detail = 128, terrain_roughness = 0.7, terrain_seed = 55000;
+            var seed = new Seed(terrain_seed);
+            var WORLD, TERRAIN, RENDER;
+            
+            // start and end of path
+            var pathStart = [0, 0];
+            var pathEnd = [0, 0];
+            var currentPath = [];
+            var currentPos = [];
+
+            function init() {
+                if (!Detector.webgl)
+                    Detector.addGetWebGLMessage();
+                else {
+                    TERRAIN = new Terrain();
+                }
+                
+                RENDER = new Render('heightMap');
+                
+                var gui = new dat.GUI();
+                gui.add(this, 'terrain_detail', 3, 512).step(1).name("Detail").listen().onFinishChange(function(value) {
+                    generate();
+                });
+                gui.add(this, 'terrain_roughness', 0, 1).name("Roughness").onFinishChange(function(value) {
+                    generate();
+                });
+                gui.add(this, "generate").name("Generate");
+                gui.add(this, 'water_height', 0.1, 256).name("Water Height").onChange(function(value) {
+                    water_mesh.scale.z = water_height;
+                    water_mesh.position.z = water_height/2;
+                });
+
+                window.addEventListener('resize', onWindowResize, false);
+            }
+
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                pathStart = pathEnd;
+                while (currentPath.length == 0) {
+                    console.log('Calcul');
+                    pathEnd = [Math.floor(Math.random() * WORLD.width), Math.floor(Math.random() * WORLD.height)];
+                    TERRAIN.end(pathEnd);
+                    RENDER.end(pathEnd, 3);
+                    currentPath = findPath(WORLD, pathStart, pathEnd, 'Manhattan');
+                }
+                
+                // draw the path
+                currentPos = currentPath.shift();
+                TERRAIN.player(currentPos);
+                RENDER.player(currentPos, 3);
+                
+                controls.update();
+                
+                renderer.render(scene, camera);
+            }
+
+            function generate() {
+                
+                WORLD = new World(terrain_detail, water_height);
+                //WORLD.createWorld();
+                WORLD.createWorld2(terrain_roughness);
+                
+                TERRAIN.addMesh(WORLD);
+                
+                renderer.render(scene, camera);
+                RENDER.redraw(WORLD);
+            };
+
+            function onload() {
+                init();
+                generate();
+                animate();
+            };
+        </script>
+        
+        <ul id="layer">
+            <li><canvas id="heightMap" height="100" width="100"></canvas></li>
+            <li><canvas id="heightMap" height="100" width="100"></canvas></li>
+            <li><canvas id="heightMap" height="100" width="100"></canvas></li>
+            <li><canvas id="heightMap" height="100" width="100"></canvas></li>
+        </ul>
+
+</body></html>
